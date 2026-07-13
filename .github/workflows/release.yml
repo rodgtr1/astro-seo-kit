@@ -1,0 +1,32 @@
+name: Release
+
+# Publishes to npm via OIDC trusted publishing when a version tag is pushed:
+#   npm version patch && git push --follow-tags
+# Requires the trusted publisher config on npmjs.com to reference this file.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # mint the OIDC token npm exchanges for publish rights
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      # Trusted publishing needs npm >= 11.5.1
+      - run: npm install -g npm@latest
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - run: npm publish
