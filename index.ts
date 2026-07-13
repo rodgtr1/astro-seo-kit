@@ -10,5 +10,6 @@ export { default as JsonLd } from './src/JsonLd.astro';
 export { default as AstroSeo } from './src/SEO.astro';
 
 export { buildTags } from './src/utils/buildTags';
+export { articleJsonLd } from './src/utils/articleJsonLd';
 
 export type * from './src/types';

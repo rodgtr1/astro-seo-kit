@@ -1,4 +1,5 @@
 import type { OpenGraphMedia, OpenGraphMediaInput, SeoTag, SEOProps } from '../types';
+import { articleJsonLd, hasArticleNode } from './articleJsonLd';
 import { inferMimeType, resolveUrl, toIsoString } from './url';
 
 const isPresent = (value: unknown): value is string =>
@@ -138,12 +139,28 @@ export const buildTags = (config: SEOProps): SeoTag[] => {
     // template is chrome for the browser tab, not for a shared card.
     og('title', isPresent(openGraph.title) ? openGraph.title : rawTitle);
     og('description', isPresent(openGraph.description) ? openGraph.description : config.description);
-    og('url', resolveUrl(openGraph.url, site));
 
-    // NEW: default to `website`, or to `article` when article metadata is
-    // present. An OG card with no `og:type` is invalid, and omitting it is the
-    // single most common mistake in hand-rolled head tags.
-    const type = isPresent(openGraph.type) ? openGraph.type : article ? 'article' : 'website';
+    // NEW: `og:url` falls back to the canonical — ogp.me lists it among the four
+    // required properties, and for almost every page the two are the same URL.
+    // `canonical={false}` suppresses the fallback along with the canonical itself.
+    const ogUrl =
+      openGraph.url ?? (config.canonical !== false ? config.canonical : undefined);
+    og('url', resolveUrl(ogUrl, site));
+
+    // NEW: default to `website`, or to the object type whose metadata is present
+    // (`article`, `profile`, `book`). An OG card with no `og:type` is invalid,
+    // and omitting it is the single most common mistake in hand-rolled head tags.
+    // Video metadata implies no default: `video.movie` vs `video.episode` vs
+    // `video.tv_show` is not ours to guess.
+    const type = isPresent(openGraph.type)
+      ? openGraph.type
+      : article
+        ? 'article'
+        : openGraph.profile
+          ? 'profile'
+          : openGraph.book
+            ? 'book'
+            : 'website';
     og('type', type);
 
     const mediaTags = (kind: 'image' | 'video', media: ReadonlyArray<OpenGraphMediaInput>) => {
@@ -254,7 +271,17 @@ export const buildTags = (config: SEOProps): SeoTag[] => {
   }
 
   /* --- JSON-LD ----------------------------------------------------------- */
-  for (const node of normalizeJsonLd(config.jsonLd)) {
+  // NEW: opt-in Article derivation. The derived node goes first so existing
+  // user nodes never reorder; a user-supplied Article node wins outright
+  // (skipping is behavior, so it runs in prod too — dev additionally warns).
+  const derived =
+    config.articleJsonLd && !hasArticleNode(config.jsonLd)
+      ? articleJsonLd(config, typeof config.articleJsonLd === 'object' ? config.articleJsonLd : undefined)
+      : undefined;
+
+  const userNodes = !config.jsonLd ? [] : Array.isArray(config.jsonLd) ? config.jsonLd : [config.jsonLd];
+
+  for (const node of normalizeJsonLd(derived ? [derived, ...userNodes] : userNodes)) {
     tags.push({ tag: 'jsonld', json: node });
   }
 

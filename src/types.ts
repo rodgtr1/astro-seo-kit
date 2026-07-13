@@ -80,11 +80,17 @@ export interface OpenGraphVideo {
 }
 
 export interface OpenGraph {
-  /** Canonical URL of this object. Relative values are resolved against `site`. */
+  /**
+   * Canonical URL of this object. Relative values are resolved against `site`.
+   * Falls back to the top-level `canonical` when omitted (unless that is `false`).
+   */
   url?: MaybeRelativeUrl;
   /** e.g. `website`, `article`, `profile`. Defaults to `website` when any OG data is present. */
   type?: string;
-  /** Falls back to the top-level `title` (after `titleTemplate` is applied). */
+  /**
+   * Falls back to the top-level *raw* `title` — `titleTemplate` is NOT applied,
+   * because the `| Site Name` suffix is browser-tab chrome, not card copy.
+   */
   title?: string;
   /** Falls back to the top-level `description`. */
   description?: string;
@@ -210,8 +216,15 @@ export interface LinkTag {
 /* JSON-LD                                                                     */
 /* -------------------------------------------------------------------------- */
 
-/** A schema.org node. `@context` is injected when you omit it. */
-export type JsonLdObject = Record<string, unknown>;
+/**
+ * A schema.org node. `@context` is injected when you omit it.
+ *
+ * The `{ '@type': string }` branch admits *interface-typed* values — a plain
+ * `Record<string, unknown>` rejects any object type without an index signature,
+ * which is exactly what `schema-dts` (and most hand-written schema types)
+ * produce. Every schema.org node carries `@type`, so this loses no safety.
+ */
+export type JsonLdObject = Record<string, unknown> | { readonly '@type': string };
 
 /** One node, or several. Several are emitted as separate script tags. */
 export type JsonLdInput = JsonLdObject | ReadonlyArray<JsonLdObject>;
@@ -243,9 +256,9 @@ export interface SEOProps {
   /**
    * The page's share image — the shorthand for the 90% case.
    *
-   * Sets `og:image` (with width/height/alt/type) and, when a Twitter card is
-   * being emitted, `twitter:image`. `openGraph.images` still works and takes
-   * precedence when both are given.
+   * Sets `og:image` (with width/height/alt/type). No `twitter:image` is emitted:
+   * X falls back to `og:image` on its own; set `twitter.image` to override it.
+   * `openGraph.images` still works and takes precedence when both are given.
    */
   image?: OpenGraphMediaInput;
 
@@ -283,6 +296,21 @@ export interface SEOProps {
 
   /** Structured data, emitted as `<script type="application/ld+json">`. */
   jsonLd?: JsonLdInput;
+
+  /**
+   * Derive an Article JSON-LD node from the props already on this component —
+   * `title`, `description`, `image`, `canonical`, and the `article` dates,
+   * authors and tags. Opt-in: requires `article` metadata and a title, or
+   * nothing is emitted (and dev warns).
+   *
+   * `true` derives with defaults (`@type: 'Article'`). An object is merged
+   * over the derived node last, so any field can be corrected:
+   * `articleJsonLd={{ '@type': 'BlogPosting', publisher: {...} }}`.
+   *
+   * If `jsonLd` already contains an `*Article`/`*Posting` node, derivation is
+   * skipped — user-supplied data always wins.
+   */
+  articleJsonLd?: boolean | JsonLdObject;
 
   additionalMetaTags?: ReadonlyArray<MetaTag>;
   additionalLinkTags?: ReadonlyArray<LinkTag>;

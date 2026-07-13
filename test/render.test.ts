@@ -39,6 +39,7 @@ describe('rendered output', () => {
       <link rel="canonical" href="https://travis.media/blog/astro-seo/">
       <meta property="og:title" content="Astro SEO">
       <meta property="og:description" content="How to do SEO in Astro.">
+      <meta property="og:url" content="https://travis.media/blog/astro-seo/">
       <meta property="og:type" content="article">
       <meta property="og:image" content="https://travis.media/og/astro-seo.png">
       <meta property="og:image:alt" content="Cover">

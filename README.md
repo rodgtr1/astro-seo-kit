@@ -89,6 +89,7 @@ This component deliberately does not emit `charset` or `viewport`. Those belong 
 | `site` | `string \| URL` | Defaults to `Astro.site`. |
 | `image` | `string \| OpenGraphMedia` | Shorthand for `openGraph.images[0]`. A bare URL string works. |
 | `article` | `OpenGraphArticle` | Implies `og:type="article"`. |
+| `articleJsonLd` | `boolean \| object` | Derives an Article JSON-LD node from the props above. See [Article structured data, derived](#article-structured-data-derived). |
 
 ### Robots
 
@@ -118,7 +119,8 @@ This component deliberately does not emit `charset` or `viewport`. Those belong 
 ```
 
 - `og:title` / `og:description` fall back to the top-level `title` / `description`. `og:title` uses the **raw** title, not the templated one — the `| Site Name` suffix is chrome for a browser tab, not for a shared card.
-- `og:type` defaults to `website`, or `article` when article metadata is present.
+- `og:url` falls back to the resolved `canonical` — [ogp.me](https://ogp.me) lists it among the four required properties, and for almost every page the two are the same URL. `canonical={false}` suppresses the fallback too.
+- `og:type` defaults to `website`, or to the object type whose metadata is present: `article`, `profile` or `book`. Video metadata implies no default — `video.movie` vs `video.episode` is not ours to guess.
 - `og:image:type` is inferred from the file extension when you don't supply it.
 - `siteName` and `site_name` both work.
 - Empty image URLs are skipped rather than emitted as `content=""`.
@@ -154,6 +156,51 @@ This package escapes `<`, `>` and the U+2028/U+2029 line terminators as **JSON u
 
 The other way to close the hole is to HTML-entity-escape the string values, which is what [`astro-seo-schema`](https://github.com/codiume/orbit/tree/main/packages/astro-seo-schema) does via Google's `safeJsonLdReplacer`. That is genuinely breakout-safe — but it mutates your data. A `<script>` is a raw text element, so entity references inside it are never decoded: a consumer parsing that JSON sees a literal `&lt;/script&gt;`, and an ordinary ampersand in a headline ("Tom & Jerry") arrives as `Tom &amp; Jerry`. Unicode escapes avoid that corruption.
 
+### Article structured data, derived
+
+The component already holds everything an [Article](https://developers.google.com/search/docs/appearance/structured-data/article) node needs — so it can build one:
+
+```astro
+<SEO
+  title="Why I switched to Astro"
+  description="A honest look at the migration."
+  canonical="/blog/why-astro/"
+  image={{ url: '/og/why-astro.png', alt: 'Cover' }}
+  article={{ publishedTime: post.date, authors: ['Travis Rodgers'] }}
+  openGraph={{ siteName: 'Travis Media' }}
+  articleJsonLd
+/>
+```
+
+That emits a JSON-LD node with `headline` (the raw title), `description`, `image` (absolutized), `datePublished`/`dateModified` (the latter falls back to the former — AI retrieval and Google both read it), `author` Person nodes (profile URLs become `{ url }`, names become `{ name }`), `publisher` from `siteName`, `articleSection`, `keywords`, and `@id`/`mainEntityOfPage` from the canonical.
+
+The rules that keep it safe:
+
+- **Opt-in and derivable-only.** Without `article` metadata and a title, nothing is emitted (and dev mode warns).
+- **Your data wins.** If `jsonLd` already contains an `*Article`/`*Posting` node, derivation is skipped.
+- **Every field is correctable.** Pass an object instead of `true` and it merges over the derived node last: `articleJsonLd={{ '@type': 'BlogPosting', publisher: { '@type': 'Organization', name: 'TM', logo: '…' } }}`.
+- `@type` defaults to `Article` — valid for every article-shaped page; blogs override with one word.
+- `article.publisher` is **not** used as the schema publisher: that OG field is a Facebook profile URL, the wrong shape for an Organization.
+
+The builder is also exported as a pure function for composing by hand: `articleJsonLd(props, overrides?)`.
+
+### Typed schema (optional)
+
+The `jsonLd` prop is deliberately untyped — but if you want the schema.org vocabulary checked at compile time, install [`schema-dts`](https://github.com/google/schema-dts) (types-only, so runtime dependencies stay at zero) and import from the `/schema` subpath:
+
+```sh
+npm install -D schema-dts
+```
+
+```astro
+---
+import { defineSchema } from 'astro-seo-kit/schema';
+---
+<SEO jsonLd={defineSchema({ '@type': 'BlogPosting', headline: 'Typed' })} />
+```
+
+A typo'd `@type` or property name is now a compile error instead of a node search engines silently ignore. The subpath is the only file that references `schema-dts`, and the package ships as source — so if you never import it, the dependency is never required.
+
 ### Escape hatches
 
 ```astro
@@ -182,7 +229,7 @@ In `astro dev` only, the component warns about the mistakes you otherwise discov
 
 `AstroSeo` is also exported as an alias, so `import { AstroSeo } from 'astro-seo-kit'` works unchanged. Every prop is supported with the same shape and the same tag order.
 
-It was verified against a real 462-page Astro 7 site (travis.media): after the swap, **all 462 pages produced a semantically identical `<head>`**, with exactly one intentional addition (`og:image:type`). See [What changes](#what-changes-vs-astrolibseo).
+It was verified against a real 462-page Astro 7 site (travis.media): after the swap, **all 462 pages produced a semantically identical `<head>`**, with only the intentional additions listed under [What changes](#what-changes-vs-astrolibseo) (on that site, just `og:image:type` — the `og:url` fallback never fires when `openGraph.url` is passed explicitly).
 
 ### What changes vs `@astrolib/seo`
 
@@ -193,7 +240,7 @@ Bugs fixed:
 - **An unresolvable image emitted `<meta property="og:image" content="">`** — an empty card image, which is worse than no image.
 - **A stray blank line** was emitted after every OG image block.
 
-Added: `og:image:type` inference, `og:type` defaulting, `article:publisher`, JSON-LD, `titleDefault`, `canonical={false}`, `twitter={false}`, relative-URL resolution, camelCase aliases (`siteName`, `card`, `creator`), `Date` support on article timestamps, and dev-time warnings.
+Added: `og:image:type` inference, `og:url` falling back to the canonical, `og:type` defaulting, `article:publisher`, JSON-LD (with derived Article nodes and optional `schema-dts` typing), `titleDefault`, `canonical={false}`, `twitter={false}`, relative-URL resolution, camelCase aliases (`siteName`, `card`, `creator`), `Date` support on article timestamps, and dev-time warnings.
 
 One behavior difference worth knowing: attribute values are escaped by Astro rather than by `html-escaper`, so `'`, `<` and `>` appear literally inside double-quoted attributes instead of as `&#39;`/`&lt;`/`&gt;`. This is valid HTML5 — those characters have no special meaning inside a double-quoted attribute value — and both forms decode to exactly the same string. The characters that *could* break an attribute, `"` and `&`, are escaped.
 
@@ -224,7 +271,7 @@ Prop mapping:
 npm test
 ```
 
-54 tests via [Astro's Container API](https://docs.astro.build/en/reference/container-reference/) under vitest — asserting on real rendered HTML, not on a string built by the test itself. Coverage: title templating, robots serialization, canonical resolution, OG media, article metadata, Twitter aliases, escaping, `<script>` breakout resistance, and a golden test pinning the exact tag sequence `@astrolib/seo` produced.
+88 tests via [Astro's Container API](https://docs.astro.build/en/reference/container-reference/) under vitest — asserting on real rendered HTML, not on a string built by the test itself. Coverage: title templating, robots serialization, canonical resolution, `og:url` fallback, OG media, article metadata, Twitter aliases, derived Article JSON-LD, dev-time warnings, escaping, `<script>` breakout resistance, and a golden test pinning the exact tag sequence `@astrolib/seo` produced.
 
 ## License
 

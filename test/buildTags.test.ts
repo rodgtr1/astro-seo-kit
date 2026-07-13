@@ -179,6 +179,27 @@ describe('open graph images', () => {
   });
 });
 
+describe('open graph url', () => {
+  test('falls back to the resolved canonical', () => {
+    const tags = buildTags({ canonical: '/blog/post/', site: 'https://travis.media', openGraph: {} });
+    expect(find(tags, 'og:url')).toBe('https://travis.media/blog/post/');
+  });
+
+  test('an explicit openGraph.url wins over the canonical', () => {
+    const tags = buildTags({ canonical: 'https://travis.media/a/', openGraph: { url: 'https://travis.media/b/' } });
+    expect(find(tags, 'og:url')).toBe('https://travis.media/b/');
+  });
+
+  test('canonical={false} suppresses the fallback too', () => {
+    const tags = buildTags({ canonical: false, openGraph: {} });
+    expect(find(tags, 'og:url')).toBeUndefined();
+  });
+
+  test('no og:url when there is neither openGraph.url nor canonical', () => {
+    expect(find(buildTags({ openGraph: {} }), 'og:url')).toBeUndefined();
+  });
+});
+
 describe('open graph type', () => {
   test('defaults to website when OG data is present but no type is given', () => {
     expect(find(buildTags({ openGraph: {} }), 'og:type')).toBe('website');
@@ -190,6 +211,15 @@ describe('open graph type', () => {
 
   test('article metadata implies og:type=article', () => {
     expect(find(buildTags({ article: { section: 'Dev' } }), 'og:type')).toBe('article');
+  });
+
+  test('profile and book metadata imply their object types', () => {
+    expect(find(buildTags({ openGraph: { profile: { username: 'travis' } } }), 'og:type')).toBe('profile');
+    expect(find(buildTags({ openGraph: { book: { isbn: '978-3-16-148410-0' } } }), 'og:type')).toBe('book');
+  });
+
+  test('video metadata implies no default — the video.* subtype is not ours to guess', () => {
+    expect(find(buildTags({ openGraph: { video: { duration: 120 } } }), 'og:type')).toBe('website');
   });
 
   test('no OG tags at all when there is no OG data', () => {
