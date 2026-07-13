@@ -1,0 +1,6 @@
+{
+  "extends": "astro/tsconfigs/strict",
+  "include": [".astro/types.d.ts", "**/*"],
+  "//": "vitest.config.ts is tooling, not shipped code; vitest 3 no longer augments Vite's UserConfig with `test`, so typechecking it here is noise.",
+  "exclude": ["dist", "vitest.config.ts"]
+}

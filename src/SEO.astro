@@ -1,0 +1,27 @@
+---
+import type { SEOProps } from './types';
+import { buildTags } from './utils/buildTags';
+import { warnAboutProps } from './utils/validate';
+
+export type Props = SEOProps;
+
+// `site` defaults to the `site` option from astro.config, which is what makes
+// relative canonical/OG URLs absolutizable without the caller passing anything.
+const site = Astro.props.site ?? Astro.site;
+const tags = buildTags({ ...Astro.props, site });
+
+if (import.meta.env.DEV) {
+  warnAboutProps(Astro.props, site, Astro.url?.pathname);
+}
+---
+{
+  tags.map((tag, index) => (
+    <Fragment>
+      {index > 0 && '\n'}
+      {tag.tag === 'title' && <title>{tag.text}</title>}
+      {tag.tag === 'meta' && <meta {...tag.attrs} />}
+      {tag.tag === 'link' && <link {...tag.attrs} />}
+      {tag.tag === 'jsonld' && <script type="application/ld+json" is:inline set:html={tag.json} />}
+    </Fragment>
+  ))
+}

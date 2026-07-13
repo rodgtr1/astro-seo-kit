@@ -1,0 +1,51 @@
+{
+  "name": "astro-seo-kit",
+  "version": "0.1.0",
+  "description": "Complete, type-safe SEO head tags for Astro — Open Graph, Twitter/X cards, canonical URLs, article metadata and JSON-LD.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Travis Rodgers <travis@travis.media> (https://travis.media)",
+  "keywords": [
+    "astro",
+    "astro-component",
+    "withastro",
+    "seo",
+    "open-graph",
+    "opengraph",
+    "twitter-card",
+    "json-ld",
+    "schema-org",
+    "meta-tags",
+    "canonical"
+  ],
+  "exports": {
+    ".": "./index.ts",
+    "./types": "./src/types.ts",
+    "./package.json": "./package.json"
+  },
+  "main": "./index.ts",
+  "types": "./src/types.ts",
+  "files": [
+    "src",
+    "index.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "astro": "^6.0.0 || ^7.0.0"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.9",
+    "astro": "^7.0.7",
+    "typescript": "^5.6.2",
+    "vitest": "^3.2.4"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "astro check"
+  }
+}

@@ -1,0 +1,15 @@
+---
+import type { JsonLdInput } from './types';
+import { normalizeJsonLd } from './utils/buildTags';
+
+export interface Props {
+  /** One schema.org node, or several. `@context` is injected when you omit it. */
+  schema: JsonLdInput;
+}
+
+// Standalone so structured data can live next to the thing it describes — a
+// product page can drop <JsonLd> beside the product, without routing the whole
+// graph back up through <SEO />.
+const scripts = normalizeJsonLd(Astro.props.schema);
+---
+{scripts.map((json) => <script type="application/ld+json" is:inline set:html={json} />)}

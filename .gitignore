@@ -1,0 +1,21 @@
+node_modules/
+dist/
+.astro/
+coverage/
+*.tsbuildinfo
+
+# Logs
+npm-debug.log*
+yarn-error.log*
+*.log
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
