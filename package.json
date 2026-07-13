@@ -5,6 +5,14 @@
   "type": "module",
   "license": "MIT",
   "author": "Travis Rodgers <travis@travis.media> (https://travis.media)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rodgtr1/astro-seo-kit.git"
+  },
+  "bugs": {
+    "url": "https://github.com/rodgtr1/astro-seo-kit/issues"
+  },
+  "homepage": "https://github.com/rodgtr1/astro-seo-kit#readme",
   "keywords": [
     "astro",
     "astro-component",
