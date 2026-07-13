@@ -229,6 +229,7 @@ npm install -D schema-dts
 
 ```astro
 ---
+import { SEO } from 'astro-seo-kit';
 import { defineSchema } from 'astro-seo-kit/schema';
 ---
 <SEO jsonLd={defineSchema({ '@type': 'BlogPosting', headline: 'Typed' })} />
