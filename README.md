@@ -8,34 +8,95 @@ Complete, type-safe SEO head tags for Astro: `<title>`, description, robots, can
 - **Real elements, not stringified HTML.** Escaping is Astro's job, so a title with a quote in it cannot corrupt an attribute.
 - **JSON-LD that can't break out of its `<script>`.**
 
-```astro
----
-import { SEO } from 'astro-seo-kit';
----
-<head>
-  <SEO
-    title="Why I switched to Astro"
-    titleTemplate="%s | Travis Media"
-    description="A honest look at the migration."
-    canonical="/blog/why-astro/"
-    image={{ url: '/og/why-astro.png', alt: 'Astro logo', width: 1200, height: 630 }}
-    article={{ publishedTime: new Date('2026-07-13'), authors: ['Travis Rodgers'], tags: ['astro'] }}
-    twitter={{ card: 'summary_large_image', site: '@travisdotmedia' }}
-  />
-</head>
+## Set up once
+
+**1. Install**, and set `site` in `astro.config.*` so relative URLs can be made absolute:
+
+```sh
+npm install astro-seo-kit
 ```
 
-That renders:
+```js
+export default defineConfig({ site: 'https://travis.media' });
+```
+
+**2. Put `<SEO />` in your layout's `<head>`** — the only place it ever goes. Site-wide defaults live here; each page's data spreads over them:
+
+```astro
+---
+// src/layouts/Layout.astro
+import { SEO } from 'astro-seo-kit';
+import type { SEOProps } from 'astro-seo-kit';
+
+type Props = { seo?: SEOProps };
+---
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <SEO
+      titleTemplate="%s | Travis Media"
+      twitter={{ card: 'summary_large_image', site: '@travisdotmedia' }}
+      {...Astro.props.seo}
+    />
+  </head>
+  <body><slot /></body>
+</html>
+```
+
+> Astro does **not** hoist `<meta>` out of nested components, so `<SEO />` must sit physically inside `<head>`. It deliberately does not emit `charset` or `viewport` — those belong to the layout, and a component that owns them tends to emit them in the wrong order.
+
+**3. Feed it your content.** You never type a title into a head by hand — for a blog, one dynamic route reads every post's frontmatter:
+
+```markdown
+---
+# src/content/blog/why-astro.md — an ordinary post
+title: Why I switched to Astro
+description: An honest look at the migration.
+pubDate: 2026-07-13
+tags: [astro]
+ogImage: /og/why-astro.png
+---
+```
+
+```astro
+---
+// src/pages/blog/[slug].astro — one file, every post
+import { getCollection, render } from 'astro:content';
+import Layout from '../../layouts/Layout.astro';
+
+export async function getStaticPaths() {
+  const posts = await getCollection('blog');
+  return posts.map((post) => ({ params: { slug: post.id }, props: { post } }));
+}
+
+const { post } = Astro.props;
+const { Content } = await render(post);
+---
+<Layout seo={{
+  title: post.data.title,
+  description: post.data.description,
+  canonical: `/blog/${post.id}/`,
+  image: { url: post.data.ogImage, alt: post.data.title, width: 1200, height: 630 },
+  article: { publishedTime: post.data.pubDate, authors: ['Travis Rodgers'], tags: post.data.tags },
+  articleJsonLd: true,
+}}>
+  <Content />
+</Layout>
+```
+
+Every post now renders its own complete `<head>`. For the post above — output copied from a real build:
 
 ```html
 <title>Why I switched to Astro | Travis Media</title>
-<meta name="description" content="A honest look at the migration.">
+<meta name="description" content="An honest look at the migration.">
 <link rel="canonical" href="https://travis.media/blog/why-astro/">
 <meta property="og:title" content="Why I switched to Astro">
-<meta property="og:description" content="A honest look at the migration.">
+<meta property="og:description" content="An honest look at the migration.">
+<meta property="og:url" content="https://travis.media/blog/why-astro/">
 <meta property="og:type" content="article">
 <meta property="og:image" content="https://travis.media/og/why-astro.png">
-<meta property="og:image:alt" content="Astro logo">
+<meta property="og:image:alt" content="Why I switched to Astro">
 <meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -44,36 +105,10 @@ That renders:
 <meta property="article:tag" content="astro">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:site" content="@travisdotmedia">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","@id":"https://travis.media/blog/why-astro/#article","mainEntityOfPage":{"@type":"WebPage","@id":"https://travis.media/blog/why-astro/"},"headline":"Why I switched to Astro","description":"An honest look at the migration.","image":["https://travis.media/og/why-astro.png"],"datePublished":"2026-07-13T00:00:00.000Z","dateModified":"2026-07-13T00:00:00.000Z","author":{"@type":"Person","name":"Travis Rodgers"},"keywords":"astro"}</script>
 ```
 
-Note what you did *not* have to do: no repeating the title inside an `openGraph.basic` object, no hand-writing `og:type`, no absolutizing the image yourself, no ISO-formatting the date.
-
-## Install
-
-```sh
-npm install astro-seo-kit
-```
-
-Set `site` in `astro.config.*` so relative URLs can be made absolute:
-
-```js
-export default defineConfig({ site: 'https://travis.media' });
-```
-
-## Where to put it
-
-Astro does **not** hoist `<meta>` out of nested components. `<SEO />` renders exactly where you place it, so place it inside `<head>`:
-
-```astro
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <SEO {...seo} />
-  </head>
-  ...
-```
-
-This component deliberately does not emit `charset` or `viewport`. Those belong to your layout, and a component that owns them tends to emit them in the wrong order.
+Note what you did *not* have to do: no repeating the title inside an `openGraph.basic` object, no hand-writing `og:type`, no absolutizing the image yourself, no ISO-formatting the date, no JSON-LD written by hand. Publishing the next post touches no code at all — its frontmatter is its SEO.
 
 ## Props
 
@@ -163,7 +198,7 @@ The component already holds everything an [Article](https://developers.google.co
 ```astro
 <SEO
   title="Why I switched to Astro"
-  description="A honest look at the migration."
+  description="An honest look at the migration."
   canonical="/blog/why-astro/"
   image={{ url: '/og/why-astro.png', alt: 'Cover' }}
   article={{ publishedTime: post.date, authors: ['Travis Rodgers'] }}
